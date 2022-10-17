@@ -690,14 +690,31 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         }
     }
 
+    /**
+     * 发送的核心实现
+     * @param msg 消息内容
+     * @param mq	发送的消息的队列
+     * @param communicationMode 通信方式-单向/同步/异步
+     * @param sendCallback 发送回调
+     * @param topicPublishInfo 主题发布信息
+     * @param timeout	超时配置
+     * @return
+     * @throws MQClientException 客户端异常
+     * @throws RemotingException	远程异常
+     * @throws MQBrokerException	服务端异常
+     * @throws InterruptedException	中断异常
+     */
     private SendResult sendKernelImpl(final Message msg,
         final MessageQueue mq,
         final CommunicationMode communicationMode,
         final SendCallback sendCallback,
         final TopicPublishInfo topicPublishInfo,
         final long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+    	//记录开始时间
         long beginStartTime = System.currentTimeMillis();
+        //通过mq队列的服务端名称获取服务端地址
         String brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());
+        //找不到的时候尝试重新加载，然后再次进行获取
         if (null == brokerAddr) {
             tryToFindTopicPublishInfo(mq.getTopic());
             brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());
@@ -1221,39 +1238,50 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public TransactionSendResult sendMessageInTransaction(final Message msg,
         final LocalTransactionExecuter localTransactionExecuter, final Object arg)
         throws MQClientException {
+    	//获取事务监听器
         TransactionListener transactionListener = getCheckListener();
         if (null == localTransactionExecuter && null == transactionListener) {
             throw new MQClientException("tranExecutor is null", null);
         }
-
+        
         // ignore DelayTimeLevel parameter
         if (msg.getDelayTimeLevel() != 0) {
             MessageAccessor.clearProperty(msg, MessageConst.PROPERTY_DELAY_TIME_LEVEL);
         }
-
+        //校验消息体
         Validators.checkMessage(msg, this.defaultMQProducer);
 
         SendResult sendResult = null;
+        //增加事务消息标记
         MessageAccessor.putProperty(msg, MessageConst.PROPERTY_TRANSACTION_PREPARED, "true");
+        //配置生产者组
         MessageAccessor.putProperty(msg, MessageConst.PROPERTY_PRODUCER_GROUP, this.defaultMQProducer.getProducerGroup());
         try {
+        	//发送消息,常规方式
             sendResult = this.send(msg);
         } catch (Exception e) {
             throw new MQClientException("send message Exception", e);
         }
-
+        //开启事务的处理模式,查询broker端是否完成
+        //先置本地事务状态为未知,后面根据broker端返回的实际状态来更新
         LocalTransactionState localTransactionState = LocalTransactionState.UNKNOW;
         Throwable localException = null;
+        //根据发送消息的结果不同,来获取本地事务消息的处理结果
         switch (sendResult.getSendStatus()) {
+        	//发送成功,为事务消息的第一步,发送消息成功,并且broker同步完成
             case SEND_OK: {
                 try {
+                	//如果事务id不为空,则设置
                     if (sendResult.getTransactionId() != null) {
                         msg.putUserProperty("__transactionId__", sendResult.getTransactionId());
                     }
+                    //获取原来消息体中的事务id
                     String transactionId = msg.getProperty(MessageConst.PROPERTY_UNIQ_CLIENT_MESSAGE_ID_KEYIDX);
                     if (null != transactionId && !"".equals(transactionId)) {
                         msg.setTransactionId(transactionId);
                     }
+                    //如果本地事务执行器不为空,则使用本地执行器执行,不然使用事务监听器执行事务结果获取
+                    //现在一般都用监听器来处理,本地执行器的方式已经被废弃
                     if (null != localTransactionExecuter) {
                         localTransactionState = localTransactionExecuter.executeLocalTransactionBranch(msg, arg);
                     } else if (transactionListener != null) {
@@ -1263,7 +1291,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     if (null == localTransactionState) {
                         localTransactionState = LocalTransactionState.UNKNOW;
                     }
-
+                    
                     if (localTransactionState != LocalTransactionState.COMMIT_MESSAGE) {
                         log.info("executeLocalTransactionBranch return {}", localTransactionState);
                         log.info(msg.toString());
@@ -1285,11 +1313,12 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         }
 
         try {
+        	//二次提交事务消息结果,commit/rollback
             this.endTransaction(msg, sendResult, localTransactionState, localException);
         } catch (Exception e) {
             log.warn("local transaction execute " + localTransactionState + ", but end broker transaction failed", e);
         }
-
+        //封装事务消息结果返回
         TransactionSendResult transactionSendResult = new TransactionSendResult();
         transactionSendResult.setSendStatus(sendResult.getSendStatus());
         transactionSendResult.setMessageQueue(sendResult.getMessageQueue());
@@ -1307,7 +1336,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         Message msg) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         return send(msg, this.defaultMQProducer.getSendMsgTimeout());
     }
-
+    //事务消息二次提交处理
     public void endTransaction(
         final Message msg,
         final SendResult sendResult,
@@ -1319,6 +1348,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         } else {
             id = MessageDecoder.decodeMessageId(sendResult.getMsgId());
         }
+        //根据消息和本地事务处理结果,构建访问broker的请求结构
         String transactionId = sendResult.getTransactionId();
         final String brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(sendResult.getMessageQueue().getBrokerName());
         EndTransactionRequestHeader requestHeader = new EndTransactionRequestHeader();
@@ -1343,6 +1373,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         requestHeader.setTranStateTableOffset(sendResult.getQueueOffset());
         requestHeader.setMsgId(sendResult.getMsgId());
         String remark = localException != null ? ("executeLocalTransactionBranch exception: " + localException.toString()) : null;
+        //发送二次提交的的请求
         this.mQClientFactory.getMQClientAPIImpl().endTransactionOneway(brokerAddr, requestHeader, remark,
             this.defaultMQProducer.getSendMsgTimeout());
     }

@@ -130,7 +130,7 @@ public class BrokerStartup {
                     in.close();
                 }
             }
-
+            brokerConfig.setAutoCreateTopicEnable(true);
             MixAll.properties2Object(ServerUtil.commandLine2Properties(commandLine), brokerConfig);
 
             if (null == brokerConfig.getRocketmqHome()) {
