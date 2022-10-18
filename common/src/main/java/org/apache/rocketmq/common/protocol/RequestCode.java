@@ -52,7 +52,7 @@ public class RequestCode {
 
     public static final int UNREGISTER_CLIENT = 35;
 
-    public static final int CONSUMER_SEND_MSG_BACK = 36;
+    public static final int CONSUMER_SEND_MSG_BACK = 36;//消费者发送消息回调
 
     public static final int END_TRANSACTION = 37;
     public static final int GET_CONSUMER_LIST_BY_GROUP = 38;

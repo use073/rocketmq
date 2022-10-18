@@ -533,7 +533,7 @@ public class BrokerController {
             this.registerServerRPCHook(rpcHook);
         }
     }
-
+    //注册消息处理器
     public void registerProcessor() {
         /**
          * SendMessageProcessor

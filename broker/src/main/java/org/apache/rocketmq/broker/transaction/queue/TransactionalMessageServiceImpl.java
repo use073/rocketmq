@@ -59,7 +59,9 @@ public class TransactionalMessageServiceImpl implements TransactionalMessageServ
     }
 
     private ConcurrentHashMap<MessageQueue, MessageQueue> opQueueMap = new ConcurrentHashMap<>();
-
+    /**
+     * 处理半事务消息
+     */
     @Override
     public CompletableFuture<PutMessageResult> asyncPrepareMessage(MessageExtBrokerInner messageInner) {
         return transactionalMessageBridge.asyncPutHalfMessage(messageInner);

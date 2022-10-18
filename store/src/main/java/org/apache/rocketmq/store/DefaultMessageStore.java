@@ -443,7 +443,9 @@ public class DefaultMessageStore implements MessageStore {
         }
         return false;
     }
-
+    /**
+     * 写入到broker中
+     */
     @Override
     public CompletableFuture<PutMessageResult> asyncPutMessage(MessageExtBrokerInner msg) {
         PutMessageStatus checkStoreStatus = this.checkStoreStatus();
@@ -508,7 +510,9 @@ public class DefaultMessageStore implements MessageStore {
 
         return resultFuture;
     }
-
+    /**
+     * 保存消息到broker
+     */
     @Override
     public PutMessageResult putMessage(MessageExtBrokerInner msg) {
         return waitForPutResult(asyncPutMessage(msg));
