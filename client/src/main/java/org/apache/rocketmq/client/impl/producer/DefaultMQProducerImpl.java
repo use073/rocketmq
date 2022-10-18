@@ -93,6 +93,9 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.exception.RemotingTimeoutException;
 import org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException;
 
+/**
+ * 消息生产者实现
+ */
 public class DefaultMQProducerImpl implements MQProducerInner {
     private final InternalLogger log = ClientLogger.getLog();
     private final Random random = new Random();
@@ -475,6 +478,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
+     * 事务消息半发送
      * DEFAULT ASYNC -------------------------------------------------------
      */
     public void send(Message msg,
@@ -537,33 +541,52 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         }
 
     }
-
+    /**
+     * 发送消息的默认实现
+     * @param msg
+     * @param communicationMode
+     * @param sendCallback
+     * @param timeout
+     * @return
+     * @throws MQClientException
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     */
     private SendResult sendDefaultImpl(
         Message msg,
         final CommunicationMode communicationMode,
         final SendCallback sendCallback,
         final long timeout
     ) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+    	//先确保发送器处于状态正常
         this.makeSureStateOK();
+        //校验消息
         Validators.checkMessage(msg, this.defaultMQProducer);
         final long invokeID = random.nextLong();
         long beginTimestampFirst = System.currentTimeMillis();
         long beginTimestampPrev = beginTimestampFirst;
         long endTimestamp = beginTimestampFirst;
+        //获取topic的信息
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
-            MessageQueue mq = null;
+            MessageQueue mq = null;//最近一次发送的消息队列
             Exception exception = null;
             SendResult sendResult = null;
+            //根据同步发送还是异步发送来确定重试的次数
             int timesTotal = communicationMode == CommunicationMode.SYNC ? 1 + this.defaultMQProducer.getRetryTimesWhenSendFailed() : 1;
             int times = 0;
+            //记录每次进行消息发送都是发送到哪个对应的queue中的
             String[] brokersSent = new String[timesTotal];
             for (; times < timesTotal; times++) {
+            	//如果是第一次发送,broker为空,如果是多次重试,则这个是最近一次发送的broker名称
                 String lastBrokerName = null == mq ? null : mq.getBrokerName();
+                //获取下次发送的队列,根据topic的消息获取到对应的消息队列,排出上一次失败的对应的队列
                 MessageQueue mqSelected = this.selectOneMessageQueue(topicPublishInfo, lastBrokerName);
                 if (mqSelected != null) {
                     mq = mqSelected;
+                    //记录这一次应该要发送到哪一个队列
                     brokersSent[times] = mq.getBrokerName();
                     try {
                         beginTimestampPrev = System.currentTimeMillis();
@@ -576,7 +599,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             callTimeout = true;
                             break;
                         }
-
+                        //进行消息发送
                         sendResult = this.sendKernelImpl(msg, mq, communicationMode, sendCallback, topicPublishInfo, timeout - costTime);
                         endTimestamp = System.currentTimeMillis();
                         this.updateFaultItem(mq.getBrokerName(), endTimestamp - beginTimestampPrev, false);
@@ -633,6 +656,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         throw e;
                     }
                 } else {
+                	//队列不存在,则直接退出
                     break;
                 }
             }
@@ -719,7 +743,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             tryToFindTopicPublishInfo(mq.getTopic());
             brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());
         }
-
+        //发送消息的具体的内容
         SendMessageContext context = null;
         if (brokerAddr != null) {
             brokerAddr = MixAll.brokerVIPChannel(this.defaultMQProducer.isSendMessageWithVIPChannel(), brokerAddr);
@@ -1257,7 +1281,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         //配置生产者组
         MessageAccessor.putProperty(msg, MessageConst.PROPERTY_PRODUCER_GROUP, this.defaultMQProducer.getProducerGroup());
         try {
-        	//发送消息,常规方式
+        	//发送消息,半消息
             sendResult = this.send(msg);
         } catch (Exception e) {
             throw new MQClientException("send message Exception", e);
@@ -1330,6 +1354,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
+     * 默认的同步发送,半消息
      * DEFAULT SYNC -------------------------------------------------------
      */
     public SendResult send(

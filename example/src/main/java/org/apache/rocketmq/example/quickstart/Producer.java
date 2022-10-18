@@ -46,9 +46,9 @@ public class Producer {
         /*
          * Instantiate with a producer group name.
          */
-        DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name");
-    	//TransactionMQProducer producer = new TransactionMQProducer("please_rename_unique_group_name");
-        //producer.setTransactionListener(transactionListener);
+        //DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name");
+    	TransactionMQProducer producer = new TransactionMQProducer("please_rename_unique_group_name");
+        producer.setTransactionListener(transactionListener);
         producer.setNamesrvAddr("127.0.0.1:9876");
         /*
          * Specify name server addresses.
@@ -81,8 +81,8 @@ public class Producer {
                 /*
                  * Call send message to deliver message to one of brokers.
                  */
-                SendResult sendResult = producer.send(msg);
-                //TransactionSendResult sendResult = producer.sendMessageInTransaction(msg, null);
+                //SendResult sendResult = producer.send(msg);
+                TransactionSendResult sendResult = producer.sendMessageInTransaction(msg, null);
                 /*
                  * There are different ways to send message, if you don't care about the send result,you can use this way
                  * {@code
