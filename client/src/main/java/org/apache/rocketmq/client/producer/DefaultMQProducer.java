@@ -49,6 +49,8 @@ import org.apache.rocketmq.remoting.RPCHook;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
+ *	 默认的普通的消息发送的生产者
+ * 	此类是打算发送消息的应用程序的入口点
  * This class is the entry point for applications intending to send messages. </p>
  *
  * It's fine to tune fields which exposes getter/setter methods, but keep in mind, all of them should work well out of
@@ -97,6 +99,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private volatile int defaultTopicQueueNums = 4;
 
     /**
+     * 默认发送超时，3000ms，3s钟
      * Timeout for sending messages.
      */
     private int sendMsgTimeout = 3000;
@@ -131,6 +134,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     private int maxMessageSize = 1024 * 1024 * 4; // 4M
 
     /**
+     *	异步发送的方式
      * Interface of asynchronous transfer data
      */
     private TraceDispatcher traceDispatcher = null;
@@ -270,6 +274,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
     
     /**
+     *	生产者启动
      * Start this producer instance. </p>
      *
      * <strong> Much internal initializing procedures are carried out to make this instance prepared, thus, it's a must
@@ -279,8 +284,11 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
      */
     @Override
     public void start() throws MQClientException {
+    	//设置生产者组
         this.setProducerGroup(withNamespace(this.producerGroup));
+        //启动默认的生产者实现方式，就是普通的实现方案
         this.defaultMQProducerImpl.start();
+        //如果配置了异步方式，则同时启动起步发送器
         if (null != traceDispatcher) {
             try {
                 traceDispatcher.start(this.getNamesrvAddr(), this.getAccessChannel());
@@ -291,6 +299,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
+     *关闭生产者实例和相关资源
      * This method shuts down this producer instance and releases related resources.
      */
     @Override
@@ -314,6 +323,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
+     * 同步发送,会等待消息完成发送后才返回结果
      * Send message in synchronous mode. This method returns only when the sending procedure totally completes. </p>
      *
      * <strong>Warn:</strong> this method has internal retry-mechanism, that is, internal implementation will retry
@@ -331,7 +341,9 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     @Override
     public SendResult send(
         Message msg) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+    	
         msg.setTopic(withNamespace(msg.getTopic()));
+        //发送消息
         return this.defaultMQProducerImpl.send(msg);
     }
 

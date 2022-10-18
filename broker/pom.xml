@@ -20,6 +20,7 @@
     <packaging>jar</packaging>
     <artifactId>rocketmq-broker</artifactId>
     <name>rocketmq-broker ${project.version}</name>
+    <description> broker 模块（broke 启动进程）</description>
 
     <dependencies>
         <dependency>

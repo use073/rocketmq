@@ -13,27 +13,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-brokerClusterName = DefaultCluster
-brokerName = broker-a
-brokerId = 0
-deleteWhen = 04
-fileReservedTime = 48
-brokerRole = ASYNC_MASTER
-flushDiskType = ASYNC_FLUSH
 
-#自动创建topic
-autoCreateTopicEnable=true
-#namesrv地址
-namesrvAddr=127.0.0.1:9876
-#存储路径
-storePathRoot=F:\\git\\rocketmqstore
-#commitLog地址
-storePathCommitLog=F:\git\rocketmqstore\\commitlog
-#消息队列存储路径
-sotrePathConsumeQueue=F:\\git\\rocketmqstore\\queue
-#消息索引存储路径
-storePathIndex=F:\\git\\rocketmqstore\\index
-#checkPoint文件路径
-storeCheckPoint=F:\\git\\rocketmqstore\\check
-#abort文件存储路径
-abortFile=F:\\git\\rocketmqstore\\abort
+accessKey: rocketmq2
+secretKey: 12345678
+    
