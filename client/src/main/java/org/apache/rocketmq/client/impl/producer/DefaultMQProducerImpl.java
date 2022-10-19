@@ -181,12 +181,12 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public void start() throws MQClientException {
         this.start(true);
     }
-
+    //启动服务，同时初始化相关资源
     public void start(final boolean startFactory) throws MQClientException {
         switch (this.serviceState) {
             case CREATE_JUST:
                 this.serviceState = ServiceState.START_FAILED;
-
+                //校验配置
                 this.checkConfig();
 
                 if (!this.defaultMQProducer.getProducerGroup().equals(MixAll.CLIENT_INNER_PRODUCER_GROUP)) {
@@ -231,6 +231,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     private void checkConfig() throws MQClientException {
+    	//校验生产者组
         Validators.checkGroup(this.defaultMQProducer.getProducerGroup());
 
         if (null == this.defaultMQProducer.getProducerGroup()) {
@@ -423,7 +424,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
         this.mQClientFactory.getMQAdminImpl().createTopic(key, newTopic, queueNum, topicSysFlag);
     }
-
+    //判断服务正在运行
     private void makeSureStateOK() throws MQClientException {
         if (this.serviceState != ServiceState.RUNNING) {
             throw new MQClientException("The producer service state not OK, "
@@ -542,11 +543,11 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     }
     /**
-     * 发送消息的默认实现
-     * @param msg
-     * @param communicationMode
-     * @param sendCallback
-     * @param timeout
+     * 
+     * @param msg	消息体
+     * @param communicationMode 发送模式，同步/异步/单向(心跳的方式)
+     * @param sendCallback 回调
+     * @param timeout 超时，/ms
      * @return
      * @throws MQClientException
      * @throws RemotingException
@@ -560,6 +561,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         final long timeout
     ) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
     	//先确保发送器处于状态正常
+    	//校验服务状态是否正在运行
         this.makeSureStateOK();
         //校验消息
         Validators.checkMessage(msg, this.defaultMQProducer);
@@ -1354,7 +1356,11 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
+<<<<<<< HEAD
      * 默认的同步发送,半消息
+=======
+     * 默认模式，同步发送消息
+>>>>>>> branch 'develop' of https://github.com/use073/rocketmq.git
      * DEFAULT SYNC -------------------------------------------------------
      */
     public SendResult send(

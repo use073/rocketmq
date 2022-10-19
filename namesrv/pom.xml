@@ -26,6 +26,7 @@
     <packaging>jar</packaging>
     <artifactId>rocketmq-namesrv</artifactId>
     <name>rocketmq-namesrv ${project.version}</name>
+    <description>NameServer实现相关类（NameServer启动进程）注册中心</description>
 
     <dependencies>
         <dependency>

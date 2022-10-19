@@ -57,6 +57,7 @@ public class Validators {
         if (null == msg) {
             throw new MQClientException(ResponseCode.MESSAGE_ILLEGAL, "the message is null");
         }
+        //根据topic的名称进行校验，需要符合正则表达式，同时不能为特殊的topic名称
         // topic
         Validators.checkTopic(msg.getTopic());
         Validators.isNotAllowedSendTopic(msg.getTopic());

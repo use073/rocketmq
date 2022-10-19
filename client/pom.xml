@@ -26,6 +26,7 @@
     <packaging>jar</packaging>
     <artifactId>rocketmq-client</artifactId>
     <name>rocketmq-client ${project.version}</name>
+    <description>消息客户端，包含消息生产者、消息消费者相关类</description>
 
     <properties>
         <maven.compiler.source>1.6</maven.compiler.source>

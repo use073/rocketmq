@@ -22,6 +22,12 @@ import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.protocol.NamespaceUtil;
 import org.apache.rocketmq.remoting.RPCHook;
 
+/**
+ * 事务消息生产者
+ * @Description
+ * @version v1.0
+ * @Date 2022年10月17日 上午8:19:41
+ */
 public class TransactionMQProducer extends DefaultMQProducer {
     private TransactionCheckListener transactionCheckListener;
     private int checkThreadPoolMinSize = 1;

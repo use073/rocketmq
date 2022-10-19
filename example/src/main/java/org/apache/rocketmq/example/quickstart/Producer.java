@@ -50,6 +50,7 @@ public class Producer {
     	TransactionMQProducer producer = new TransactionMQProducer("please_rename_unique_group_name");
         producer.setTransactionListener(transactionListener);
         producer.setNamesrvAddr("127.0.0.1:9876");
+
         /*
          * Specify name server addresses.
          * <p/>
@@ -63,22 +64,25 @@ public class Producer {
          */
 
         /*
+         * 启动实例
          * Launch the instance.
          */
         producer.start();
-
+        //连续发送1000次消息
         for (int i = 0; i < 1000; i++) {
             try {
 
                 /*
+                 * 构建消息体
                  * Create a message instance, specifying topic, tag and message body.
                  */
-                Message msg = new Message("TopicTest" /* Topic */,
+                Message msg = new Message("TopicTest1" /* Topic */,
                     "TagA" /* Tag */,
                     ("Hello RocketMQ " + i).getBytes(RemotingHelper.DEFAULT_CHARSET) /* Message body */
                 );
 
                 /*
+                 * 发送消息
                  * Call send message to deliver message to one of brokers.
                  */
                 //SendResult sendResult = producer.send(msg);
