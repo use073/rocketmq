@@ -59,6 +59,7 @@ import org.apache.rocketmq.store.config.MessageStoreConfig;
 import org.apache.rocketmq.store.schedule.ScheduleMessageService;
 
 /**
+ * DLedger 就是一个基于 raft 协议的 commitlog 存储库，也是 RocketMQ 实现新的高可用多副本架构的关键
  * Store all metadata downtime for recovery, data protection reliability
  */
 public class DLedgerCommitLog extends CommitLog {
