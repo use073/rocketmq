@@ -49,8 +49,12 @@ import org.apache.rocketmq.remoting.RPCHook;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 
 /**
+<<<<<<< HEAD
+ * 普通消息生产者实现
+=======
  *	 默认的普通的消息发送的生产者
  * 	此类是打算发送消息的应用程序的入口点
+>>>>>>> branch 'develop' of https://github.com/use073/rocketmq.git
  * This class is the entry point for applications intending to send messages. </p>
  *
  * It's fine to tune fields which exposes getter/setter methods, but keep in mind, all of them should work well out of
@@ -323,6 +327,7 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
     }
 
     /**
+     * 同步发送消息,具体的也是调用mq的具体实现的发送方法
      * 同步发送,会等待消息完成发送后才返回结果
      * Send message in synchronous mode. This method returns only when the sending procedure totally completes. </p>
      *

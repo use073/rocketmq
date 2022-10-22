@@ -18,8 +18,13 @@ package org.apache.rocketmq.example.quickstart;
 
 import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
+import org.apache.rocketmq.client.producer.LocalTransactionState;
 import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.TransactionListener;
+import org.apache.rocketmq.client.producer.TransactionMQProducer;
+import org.apache.rocketmq.client.producer.TransactionSendResult;
 import org.apache.rocketmq.common.message.Message;
+import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 
 /**
@@ -27,11 +32,23 @@ import org.apache.rocketmq.remoting.common.RemotingHelper;
  */
 public class Producer {
     public static void main(String[] args) throws MQClientException, InterruptedException {
+    	TransactionListener transactionListener = new TransactionListener() {
+            @Override
+            public LocalTransactionState executeLocalTransaction(Message msg, Object arg) {
+                return LocalTransactionState.COMMIT_MESSAGE;
+            }
 
+            @Override
+            public LocalTransactionState checkLocalTransaction(MessageExt msg) {
+                return LocalTransactionState.COMMIT_MESSAGE;
+            }
+        };
         /*
          * Instantiate with a producer group name.
          */
-        DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name");
+        //DefaultMQProducer producer = new DefaultMQProducer("please_rename_unique_group_name");
+    	TransactionMQProducer producer = new TransactionMQProducer("please_rename_unique_group_name");
+        producer.setTransactionListener(transactionListener);
         producer.setNamesrvAddr("127.0.0.1:9876");
 
         /*
@@ -68,7 +85,8 @@ public class Producer {
                  * 发送消息
                  * Call send message to deliver message to one of brokers.
                  */
-                SendResult sendResult = producer.send(msg);
+                //SendResult sendResult = producer.send(msg);
+                TransactionSendResult sendResult = producer.sendMessageInTransaction(msg, null);
                 /*
                  * There are different ways to send message, if you don't care about the send result,you can use this way
                  * {@code

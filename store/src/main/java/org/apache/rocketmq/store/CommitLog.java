@@ -603,7 +603,11 @@ public class CommitLog {
         keyBuilder.append(messageExt.getQueueId());
         return keyBuilder.toString();
     }
-
+    /**
+     * 存储消息
+     * @param msg
+     * @return
+     */
     public CompletableFuture<PutMessageResult> asyncPutMessage(final MessageExtBrokerInner msg) {
         // Set the storage time
         msg.setStoreTimestamp(System.currentTimeMillis());
@@ -612,11 +616,12 @@ public class CommitLog {
         msg.setBodyCRC(UtilAll.crc32(msg.getBody()));
         // Back to Results
         AppendMessageResult result = null;
-
+        //获取对应的存储服务
         StoreStatsService storeStatsService = this.defaultMessageStore.getStoreStatsService();
 
         String topic = msg.getTopic();
 //        int queueId msg.getQueueId();
+        //判断是否是事务消息提交类型消息
         final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
@@ -625,15 +630,15 @@ public class CommitLog {
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
                     msg.setDelayTimeLevel(this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel());
                 }
-
+                //事务消息会把消息存放到一个独立的队列中
                 topic = TopicValidator.RMQ_SYS_SCHEDULE_TOPIC;
                 int queueId = ScheduleMessageService.delayLevel2QueueId(msg.getDelayTimeLevel());
-
+                //把真实的topic和对应的队列进行保存下来
                 // Backup real topic, queueId
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_TOPIC, msg.getTopic());
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_QUEUE_ID, String.valueOf(msg.getQueueId()));
                 msg.setPropertiesString(MessageDecoder.messageProperties2String(msg.getProperties()));
-
+                //设置事务消息独立的队列
                 msg.setTopic(topic);
                 msg.setQueueId(queueId);
             }
@@ -648,13 +653,15 @@ public class CommitLog {
         if (storeSocketAddress.getAddress() instanceof Inet6Address) {
             msg.setStoreHostAddressV6Flag();
         }
-
+        //获取上下文
         PutMessageThreadLocal putMessageThreadLocal = this.putMessageThreadLocal.get();
+        //如果没有异常并且消息准确的情况下,返回的结果都为null,里面配置了很多上下文的内容
         PutMessageResult encodeResult = putMessageThreadLocal.getEncoder().encode(msg);
         if (encodeResult != null) {
             return CompletableFuture.completedFuture(encodeResult);
         }
         msg.setEncodedBuff(putMessageThreadLocal.getEncoder().encoderBuffer);
+        //生成对应的上下文信息
         PutMessageContext putMessageContext = new PutMessageContext(generateKey(putMessageThreadLocal.getKeyBuilder(), msg));
 
         long elapsedTimeInLock = 0;
@@ -662,27 +669,34 @@ public class CommitLog {
 
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
+        	//找到对应的存储的文件
             MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
             long beginLockTimestamp = this.defaultMessageStore.getSystemClock().now();
+            //根据时间戳在queue里面进行排序,其实就是进入的顺序
             this.beginTimeInLock = beginLockTimestamp;
 
             // Here settings are stored timestamp, in order to ensure an orderly
             // global
+            //配置保存的时间戳
             msg.setStoreTimestamp(beginLockTimestamp);
-
+            //如果文件不存在,或者已经满了,则新建一个新的文件
             if (null == mappedFile || mappedFile.isFull()) {
+            	//获取对应文件,如果不存在,则进行新建
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
+            //如果查找文件不存在,并且无法进行创建的话,则无法进行保存消息,直接返回失败的结果
             if (null == mappedFile) {
                 log.error("create mapped file1 error, topic: " + msg.getTopic() + " clientAddr: " + msg.getBornHostString());
                 return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.CREATE_MAPEDFILE_FAILED, null));
             }
-
+            //把消息以追加的形式写入到文件中
             result = mappedFile.appendMessage(msg, this.appendMessageCallback, putMessageContext);
+            //根据消息写入文件的结果处理后续
             switch (result.getStatus()) {
                 case PUT_OK:
                     break;
                 case END_OF_FILE:
+                	//文件超长了,重新建立一个文件,然后重新保存一次
                     unlockMappedFile = mappedFile;
                     // Create a new file, re-write the message
                     mappedFile = this.mappedFileQueue.getLastMappedFile(0);
@@ -1285,14 +1299,14 @@ public class CommitLog {
             this.msgStoreItemMemory = ByteBuffer.allocate(END_FILE_MIN_BLANK_LENGTH);
             this.maxMessageSize = size;
         }
-
+        //往保存文件追加内容写入
         public AppendMessageResult doAppend(final long fileFromOffset, final ByteBuffer byteBuffer, final int maxBlank,
             final MessageExtBrokerInner msgInner, PutMessageContext putMessageContext) {
             // STORETIMESTAMP + STOREHOSTADDRESS + OFFSET <br>
-
+        	//写入后的offset
             // PHY OFFSET
             long wroteOffset = fileFromOffset + byteBuffer.position();
-
+            //生成消息id???没看懂
             Supplier<String> msgIdSupplier = () -> {
                 int sysflag = msgInner.getSysFlag();
                 int msgIdLen = (sysflag & MessageSysFlag.STOREHOSTADDRESS_V6_FLAG) == 0 ? 4 + 4 + 8 : 16 + 4 + 8;
@@ -1302,31 +1316,33 @@ public class CommitLog {
                 msgIdBuffer.putLong(msgIdLen - 8, wroteOffset);
                 return UtilAll.bytes2string(msgIdBuffer.array());
             };
-
+            //记录消费队列的信息
             // Record ConsumeQueue information
+            //获取队列的key
             String key = putMessageContext.getTopicQueueTableKey();
+            //获取队列的offset
             Long queueOffset = CommitLog.this.topicQueueTable.get(key);
             if (null == queueOffset) {
                 queueOffset = 0L;
                 CommitLog.this.topicQueueTable.put(key, queueOffset);
             }
-
+            //消息分发,写入不同的queue?没看懂
             boolean multiDispatchWrapResult = CommitLog.this.multiDispatch.wrapMultiDispatch(msgInner);
             if (!multiDispatchWrapResult) {
                 return new AppendMessageResult(AppendMessageStatus.UNKNOWN_ERROR);
             }
-
+            //判断是否是事务消息,如果是事务消息,则只做半提交
             // Transaction messages that require special handling
             final int tranType = MessageSysFlag.getTransactionValue(msgInner.getSysFlag());
             switch (tranType) {
                 // Prepared and Rollback message is not consumed, will not enter the
                 // consumer queue
-                case MessageSysFlag.TRANSACTION_PREPARED_TYPE:
-                case MessageSysFlag.TRANSACTION_ROLLBACK_TYPE:
+                case MessageSysFlag.TRANSACTION_PREPARED_TYPE://半消息
+                case MessageSysFlag.TRANSACTION_ROLLBACK_TYPE://回滚
                     queueOffset = 0L;
                     break;
                 case MessageSysFlag.TRANSACTION_NOT_TYPE:
-                case MessageSysFlag.TRANSACTION_COMMIT_TYPE:
+                case MessageSysFlag.TRANSACTION_COMMIT_TYPE://二次事务的提交
                 default:
                     break;
             }
@@ -1375,8 +1391,9 @@ public class CommitLog {
                 case MessageSysFlag.TRANSACTION_PREPARED_TYPE:
                 case MessageSysFlag.TRANSACTION_ROLLBACK_TYPE:
                     break;
-                case MessageSysFlag.TRANSACTION_NOT_TYPE:
+                case MessageSysFlag.TRANSACTION_NOT_TYPE://非事务消息的,也和第二次事务提交处理的流程一只,直接更新对应的queue
                 case MessageSysFlag.TRANSACTION_COMMIT_TYPE:
+                	//第二次提交的事务,把消息id写入到queue里面,更新offset,这样客户端就可以对这个消息可见
                     // The next update ConsumeQueue information
                     CommitLog.this.topicQueueTable.put(key, ++queueOffset);
                     CommitLog.this.multiDispatch.updateMultiQueueOffset(msgInner);

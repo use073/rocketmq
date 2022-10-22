@@ -89,6 +89,9 @@ public class TransactionMQProducer extends DefaultMQProducer {
         return this.defaultMQProducerImpl.sendMessageInTransaction(msg, tranExecuter, arg);
     }
 
+    /**
+     * 发送事务消息
+     */
     @Override
     public TransactionSendResult sendMessageInTransaction(final Message msg,
         final Object arg) throws MQClientException {

@@ -210,18 +210,19 @@ public class MappedFile extends ReferenceResource {
             PutMessageContext putMessageContext) {
         return appendMessagesInner(messageExtBatch, cb, putMessageContext);
     }
-
+    //保存消息到文件中
     public AppendMessageResult appendMessagesInner(final MessageExt messageExt, final AppendMessageCallback cb,
             PutMessageContext putMessageContext) {
         assert messageExt != null;
         assert cb != null;
-
+        //当前的写入点
         int currentPos = this.wrotePosition.get();
-
+        //保存的文件要比文件的限制大小小的时候才可以进行写入
         if (currentPos < this.fileSize) {
             ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();
             byteBuffer.position(currentPos);
             AppendMessageResult result;
+            //根据单消息还是批量消息选择不同的执行函数
             if (messageExt instanceof MessageExtBrokerInner) {
                 result = cb.doAppend(this.getFileFromOffset(), byteBuffer, this.fileSize - currentPos,
                         (MessageExtBrokerInner) messageExt, putMessageContext);
